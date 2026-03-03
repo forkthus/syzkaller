@@ -53,11 +53,12 @@ import (
 )
 
 var (
-	flagConfig = flag.String("config", "", "configuration file")
-	flagDebug  = flag.Bool("debug", false, "dump all VM output to console")
-	flagBench  = flag.String("bench", "", "write execution statistics into this file periodically")
-	flagMode   = flag.String("mode", ModeFuzzing.Name, modesDescription())
-	flagTests  = flag.String("tests", "", "prefix to match test file names (for -mode run-tests)")
+	flagConfig      = flag.String("config", "", "configuration file")
+	flagDebug       = flag.Bool("debug", false, "dump all VM output to console")
+	flagBench       = flag.String("bench", "", "write execution statistics into this file periodically")
+	flagBenchPeriod = flag.Duration("bench-period", time.Minute, "interval between bench snapshots")
+	flagMode        = flag.String("mode", ModeFuzzing.Name, modesDescription())
+	flagTests       = flag.String("tests", "", "prefix to match test file names (for -mode run-tests)")
 )
 
 type Manager struct {
@@ -417,13 +418,16 @@ func (mgr *Manager) heartbeatLoop() {
 }
 
 func (mgr *Manager) initBench() {
+	if *flagBenchPeriod <= 0 {
+		log.Fatalf("bench period must be positive")
+	}
 	f, err := os.OpenFile(*flagBench, os.O_WRONLY|os.O_CREATE|os.O_EXCL, osutil.DefaultFilePerm)
 	if err != nil {
 		log.Fatalf("failed to open bench file: %v", err)
 	}
 	mgr.benchFile = f
 	go func() {
-		for range time.NewTicker(time.Minute).C {
+		for range time.NewTicker(*flagBenchPeriod).C {
 			mgr.writeBench()
 		}
 	}()
